@@ -1,17 +1,27 @@
-import { createToken, injectable } from '@fridgefm/inverter';
-import fs from 'fs-extra';
-import _ from 'highland';
-import id3 from 'node-id3';
-import { extractLast } from '../../utils/funcs';
-import { getDateFromMsecs } from '../../utils/time';
-import Mp3 from '../../utils/mp3';
-import type { TTrack, TrackStats, ShallowTrackMeta, TrackPath } from './track.types';
-import type { Readable } from 'stream';
-import type { Tags } from 'node-id3';
+import { createToken, injectable } from "@fridgefm/inverter";
+import fs from "fs-extra";
+import _ from "highland";
+import id3 from "node-id3";
+import { extractLast } from "../../utils/funcs";
+import { getDateFromMsecs } from "../../utils/time";
+import Mp3 from "../../utils/mp3";
+import type {
+  TTrack,
+  TrackStats,
+  ShallowTrackMeta,
+  TrackPath,
+} from "./track.types";
+import type { Readable } from "stream";
+import type { Tags } from "node-id3";
 
-export const TRACK_FACTORY_TOKEN = createToken<(path: string) => TTrack>('track');
+// MAY HAVE BROKEN IT HERE
+export const TRACK_FACTORY_TOKEN =
+  createToken<(path: string, externalId: string) => TTrack>("track");
 
-export const getMetaAsync = async (stats: TrackStats): Promise<ShallowTrackMeta> => {
+export const getMetaAsync = async (
+  stats: TrackStats,
+  externalId: string
+): Promise<ShallowTrackMeta> => {
   const { fullPath, name } = stats;
 
   return new Promise((res) =>
@@ -19,26 +29,32 @@ export const getMetaAsync = async (stats: TrackStats): Promise<ShallowTrackMeta>
       const { artist, title, ...rest } = meta || {};
 
       if (!artist || !title || err) {
-        const calculated = name.split(' - ');
-        res({ artist: calculated[0], title: calculated[1], origin: 'fs' });
+        const calculated = name.split(" - ");
+        res({
+          externalId,
+          artist: calculated[0],
+          title: calculated[1],
+          origin: "fs",
+        });
       }
       res({
+        externalId,
         artist,
         title,
         ...rest,
-        origin: 'id3',
+        origin: "id3",
       });
-    }),
+    })
   );
 };
 
 export const getStats = (fullPath: TrackPath): TrackStats => {
   const file = fs.readFileSync(fullPath);
-  const [directory, fullName] = extractLast(fullPath, '/');
+  const [directory, fullName] = extractLast(fullPath, "/");
   const duration = Mp3.getDuration(file);
   const tagsSize = Mp3.getTagsSize(file);
   const { size } = fs.statSync(fullPath);
-  const [name, format] = extractLast(fullName, '.');
+  const [name, format] = extractLast(fullName, ".");
 
   return {
     size,
@@ -49,18 +65,26 @@ export const getStats = (fullPath: TrackPath): TrackStats => {
     fullPath,
     name,
     bitrate: Math.ceil((size - tagsSize) / (duration / 1000)),
-    stringified: `${name}.${format} [${Math.floor(size / 1024) / 1000}MB/${getDateFromMsecs(duration)}]`,
+    stringified: `${name}.${format} [${
+      Math.floor(size / 1024) / 1000
+    }MB/${getDateFromMsecs(duration)}]`,
   };
 };
 
-export const createSoundStream = ({ fullPath, bitrate, tagsSize }: TrackStats): [Error | null, Readable] => {
+export const createSoundStream = ({
+  fullPath,
+  bitrate,
+  tagsSize,
+}: TrackStats): [Error | null, Readable] => {
   try {
     if (!fs.statSync(fullPath).isFile()) {
       throw new Error(`Not a file: '${fullPath}'`);
     }
 
     // @ts-ignore
-    const hlStream = _(fs.createReadStream(fullPath, { highWaterMark: bitrate })) as Highland.Stream<Buffer>;
+    const hlStream = _(
+      fs.createReadStream(fullPath, { highWaterMark: bitrate })
+    ) as Highland.Stream<Buffer>;
 
     const comp = _.seq(
       // @ts-ignore
@@ -68,7 +92,7 @@ export const createSoundStream = ({ fullPath, bitrate, tagsSize }: TrackStats): 
       // @ts-ignore
       // _.slice(60, 80), // for debuggine purposes
       // @ts-ignore
-      _.ratelimit(1, 1000),
+      _.ratelimit(1, 1000)
     );
 
     return [null, comp(hlStream)];
@@ -81,11 +105,12 @@ export const createSoundStream = ({ fullPath, bitrate, tagsSize }: TrackStats): 
 
 export const trackProvider = injectable({
   provide: TRACK_FACTORY_TOKEN,
-  useValue: (fullPath: string) => {
-    const fsStats = getStats(fullPath);
+  useValue: (filePath: string, externalId: string) => {
+    const fsStats = getStats(filePath);
 
     return {
-      getMetaAsync: () => getMetaAsync(fsStats),
+      externalId,
+      getMetaAsync: () => getMetaAsync(fsStats, externalId),
       getSound: () => createSoundStream(fsStats),
       fsStats,
       playCount: 0,

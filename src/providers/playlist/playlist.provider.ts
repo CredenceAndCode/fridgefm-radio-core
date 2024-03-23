@@ -1,57 +1,61 @@
-import { injectable, createToken } from '@fridgefm/inverter';
-import { createList } from '../../utils/fs';
-import { captureTime } from '../../utils/time';
-import { PUBLIC_EVENTS, EVENT_BUS_TOKEN } from '../events/events.provider';
-import { TRACK_FACTORY_TOKEN } from '../track/track.provider';
-import { extractLast } from '../../utils/funcs';
-import Mp3 from '../../utils/mp3';
+import { injectable, createToken } from "@fridgefm/inverter";
+// import { createList } from "../../utils/fs";
+import { captureTime } from "../../utils/time";
+import { PUBLIC_EVENTS, EVENT_BUS_TOKEN } from "../events/events.provider";
+import { TRACK_FACTORY_TOKEN } from "../track/track.provider";
+// import { extractLast } from "../../utils/funcs";
+// import Mp3 from "../../utils/mp3";
 
-import type { TTrack } from '../track/track.types';
-import type { InfoEvent } from '../events/events.types';
-import type { TrackMap, TrackList, ReorderCb, PathList, PlaylistElement, TPlaylist } from './playlist.types';
+import type { TTrack } from "../track/track.types";
+import type { InfoEvent } from "../events/events.types";
+import type {
+  TrackMap,
+  TrackList,
+  PathList,
+  PlaylistElement,
+  TPlaylist,
+  TrackInput,
+} from "./playlist.types";
 
-export const PLAYLIST_TOKEN = createToken<TPlaylist>('playlist');
+export const PLAYLIST_TOKEN = createToken<TPlaylist>("playlist");
 
 export const playlistProvider = injectable({
   provide: PLAYLIST_TOKEN,
-  scope: 'singleton',
+  scope: "singleton",
   useFactory: (createTrack, eventBus) => {
-    const folders: Set<string> = new Set();
+    let tracks: Set<TrackInput> = new Set();
     let currentIndex = -1;
     let tracksMap: TrackMap = new Map();
     let list: PathList = [];
 
     const emitInfo = (a: InfoEvent) => {
-      eventBus.emit(PUBLIC_EVENTS.INFO, { name: 'playlist', ...a });
+      eventBus.emit(PUBLIC_EVENTS.INFO, { name: "playlist", ...a });
     };
 
     const revalidate = () => {
       const ct = captureTime();
-      list = createList(Array.from(folders));
-      tracksMap = list
-        .filter((path) => {
-          const f = extractLast(path, '/');
-
-          return Mp3.isSupported(f[1]);
-        })
-        .reduce((acc, path) => {
-          // deduplicate if already in map
-          if (acc.has(path)) {
-            return acc;
-          }
-
-          return acc.set(path, createTrack(path));
-        }, new Map() as TrackMap);
+      list = Array.from(tracks);
+      console.log(list);
+      tracksMap = list.reduce((acc, trackInput) => {
+        return acc.set(
+          trackInput.filePath,
+          createTrack(trackInput.filePath, trackInput.externalId)
+        );
+      }, new Map() as TrackMap);
 
       const result = publicPlaylist.getList();
-      emitInfo({ event: 'revalidate', message: 'Playlist revalidated', timings: ct() });
+      emitInfo({
+        event: "revalidate",
+        message: "Playlist revalidated",
+        timings: ct(),
+      });
       return result;
     };
 
     const publicPlaylist = {
       getList: (): TrackList =>
         list.map((v, i) => {
-          const tra = tracksMap.get(v) as TTrack;
+          const tra = tracksMap.get(v.filePath) as TTrack;
 
           return {
             ...tra,
@@ -68,11 +72,15 @@ export const playlistProvider = injectable({
         } else {
           currentIndex += 1;
         }
-        const nextPath = list[currentIndex] as string;
+        const nextPath = list[currentIndex]?.filePath as string;
         const nextTrack = tracksMap.get(nextPath);
 
         if (!nextTrack) {
-          emitInfo({ level: 'warn', event: 'no-next-track', message: `No next track found for ${nextPath}` });
+          emitInfo({
+            level: "warn",
+            event: "no-next-track",
+            message: `No next track found for ${nextPath}`,
+          });
           // try next tracks
           return publicPlaylist.getNext();
         }
@@ -80,26 +88,15 @@ export const playlistProvider = injectable({
 
         return { ...nextTrack, isPlaying: true };
       },
-      addFolder: (folder: string) => {
-        folders.add(folder);
-        return revalidate();
-      },
-      reorder: (cb: ReorderCb) => {
-        const ct = captureTime();
-        const prevList = publicPlaylist.getList();
-        const currentlyPlaying = prevList.find((v) => !!v.isPlaying);
-
-        list = cb(prevList).map((b) => b.fsStats.fullPath);
-        currentIndex = list.findIndex((v) => v === currentlyPlaying?.fsStats.fullPath);
-
-        emitInfo({
-          level: 'info',
-          event: 'reorder',
-          message: 'Playlist reordered',
-          timings: ct(),
+      addFolder: (trackInputs: TrackInput[]) => {
+        tracks = new Set();
+        trackInputs.forEach((track) => {
+          tracks.add({
+            filePath: track.filePath,
+            externalId: track.externalId,
+          });
         });
-
-        return publicPlaylist.getList();
+        return revalidate();
       },
     };
 

@@ -1,6 +1,10 @@
-import type { ClientRequest, ServerResponse } from 'http';
-import type { TrackList, ReorderCb } from '../providers/playlist/playlist.types';
-import type { TEmitter } from '../providers/events/events.types';
+import type { ClientRequest, ServerResponse } from "http";
+import type {
+  TrackList,
+  ReorderCb,
+  TrackInput,
+} from "../providers/playlist/playlist.types";
+import type { TEmitter } from "../providers/events/events.types";
 
 export type TStation = {
   /**
@@ -10,7 +14,7 @@ export type TStation = {
   /**
    * Add the folder to the playlist
    */
-  addFolder(folder: string): void;
+  addFolder(filepathArray: TrackInput[]): void;
   /**
    * Immediately switch to the next track
    */
@@ -26,12 +30,24 @@ export type TStation = {
   /**
    * Starts piping the stream to the listener
    */
-  connectListener(req: ClientRequest | undefined, res: ServerResponse, cb: () => void): void;
+  connectListener(
+    req: ClientRequest | undefined,
+    res: ServerResponse,
+    cb: () => void
+  ): void;
   /**
    * Lets you listen to various track events
    */
-  on: TEmitter['on'];
+  on: TEmitter["on"];
 };
 
-export type { ReorderCb, TrackList, TPlaylist } from '../providers/playlist/playlist.types';
-export type { ShallowTrackMeta, TTrack, TrackStats } from '../providers/track/track.types';
+export type {
+  ReorderCb,
+  TrackList,
+  TPlaylist,
+} from "../providers/playlist/playlist.types";
+export type {
+  ShallowTrackMeta,
+  TTrack,
+  TrackStats,
+} from "../providers/track/track.types";

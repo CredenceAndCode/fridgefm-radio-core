@@ -1,5 +1,5 @@
-import type { Readable } from 'stream';
-import type { Tags } from 'node-id3';
+import type { Readable } from "stream";
+import type { Tags } from "node-id3";
 
 export type TrackPath = string;
 
@@ -16,7 +16,8 @@ export type TrackStats = {
 };
 
 export type ShallowTrackMeta = Tags & {
-  origin: 'id3' | 'fs';
+  externalId: string;
+  origin: "id3" | "fs";
 };
 
 export type TTrack = {
