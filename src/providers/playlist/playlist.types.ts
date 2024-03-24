@@ -18,7 +18,7 @@ export type PathList = readonly TrackInput[];
 export type TrackMap = Map<TrackPath, TTrack>;
 
 export type TPlaylist = {
-  addFolder(filepathArray: TrackInput[]): TrackList;
+  addFolder(filepathArray: TrackInput[], loopIndex: number): TrackList;
   // reorder(cb: ReorderCb): TrackList;
   getList(): TrackList;
   getNext(): TTrack;

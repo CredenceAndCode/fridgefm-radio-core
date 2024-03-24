@@ -25,6 +25,7 @@ export const playlistProvider = injectable({
   useFactory: (createTrack, eventBus) => {
     let tracks: Set<TrackInput> = new Set();
     let currentIndex = -1;
+    let loopRestartIndex = 0;
     let tracksMap: TrackMap = new Map();
     let list: PathList = [];
 
@@ -35,7 +36,6 @@ export const playlistProvider = injectable({
     const revalidate = () => {
       const ct = captureTime();
       list = Array.from(tracks);
-      console.log(list);
       tracksMap = list.reduce((acc, trackInput) => {
         return acc.set(
           trackInput.filePath,
@@ -44,6 +44,7 @@ export const playlistProvider = injectable({
       }, new Map() as TrackMap);
 
       const result = publicPlaylist.getList();
+
       emitInfo({
         event: "revalidate",
         message: "Playlist revalidated",
@@ -63,11 +64,11 @@ export const playlistProvider = injectable({
           };
         }),
       getNext: (): PlaylistElement => {
-        if (list.length - 1 === currentIndex) {
+        if (list.length > 0 && list.length - 1 === currentIndex) {
           // the playlist drained
           const ct = captureTime();
           revalidate();
-          currentIndex = 0;
+          currentIndex = loopRestartIndex;
           eventBus.emit(PUBLIC_EVENTS.RESTART, publicPlaylist.getList(), ct());
         } else {
           currentIndex += 1;
@@ -88,7 +89,11 @@ export const playlistProvider = injectable({
 
         return { ...nextTrack, isPlaying: true };
       },
-      addFolder: (trackInputs: TrackInput[]) => {
+      addFolder: (trackInputs: TrackInput[], loopIndex: number) => {
+        if (loopIndex) {
+          const restartIndex = loopIndex ? loopIndex : 0;
+          loopRestartIndex = restartIndex;
+        }
         tracks = new Set();
         trackInputs.forEach((track) => {
           tracks.add({

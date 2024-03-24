@@ -27,8 +27,8 @@ export const stationProvider = injectable({
         eventBus.emit(PUBLIC_EVENTS.START, this.getPlaylist(), ct());
       },
       getPlaylist: () => playlist.getList(),
-      addFolder: (filepathArray: TrackInput[]) =>
-        playlist.addFolder(filepathArray),
+      addFolder: (filepathArray: TrackInput[], loopIndex: number) =>
+        playlist.addFolder(filepathArray, loopIndex),
       next: () => queuestream.next(),
       connectListener(_: ClientRequest, res: ServerResponse, cb = () => {}) {
         const { currentPipe, getPrebuffer } = queuestream;

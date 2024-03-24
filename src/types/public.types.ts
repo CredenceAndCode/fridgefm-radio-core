@@ -14,7 +14,7 @@ export type TStation = {
   /**
    * Add the folder to the playlist
    */
-  addFolder(filepathArray: TrackInput[]): void;
+  addFolder(filepathArray: TrackInput[], loopIndex: number): void;
   /**
    * Immediately switch to the next track
    */

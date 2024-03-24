@@ -40,8 +40,8 @@ export class Station implements TStation {
     this._station.start();
   }
 
-  public addFolder(filepathArray: TrackInput[]) {
-    this._station.addFolder(filepathArray);
+  public addFolder(filepathArray: TrackInput[], loopIndex: number) {
+    this._station.addFolder(filepathArray, loopIndex);
   }
 
   public next() {
